@@ -7,7 +7,7 @@ import torch
 from transformers import AutoTokenizer
 
 # Define Groq API endpoint and API key (replace 'YOUR_API_KEY' with your actual Groq API key)
-GROQ_API_URL = "https://api.groq.com/v1/llama"  # Use correct Groq endpoint for your model
+GROQ_API_URL = "https://api.groq.com/v1/llama"  # Use the correct Groq endpoint for your model
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]  # Access Groq API key from Streamlit secrets
 
 # Load the dataset for context retrieval
