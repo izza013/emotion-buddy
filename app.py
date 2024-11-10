@@ -1,42 +1,15 @@
 import streamlit as st
-import requests
 from datasets import load_dataset
-import numpy as np
-import faiss
 import torch
-from transformers import AutoTokenizer
-
-# Get the Groq API key from Streamlit secrets
-api_key = st.secrets["GROQ_API_KEY"]  # Use Streamlit secrets for the API key
-url = "https://api.groq.com/openai/v1/models"
-
-# Define the headers for the API request
-headers = {
-    "Authorization": f"Bearer {api_key}",
-    "Content-Type": "application/json"
-}
-
-# Make the API request to get available models from Groq
-response = requests.get(url, headers=headers)
-
-# Check if the response is successful (status code 200)
-if response.status_code == 200:
-    models_data = response.json()
-else:
-    st.error(f"Error retrieving models: {response.status_code}")
-    models_data = None
-
-# Display the list of models if data is successfully retrieved
-if models_data:
-    st.write("Available Models from Groq API:")
-    st.json(models_data)  # Display the raw model data as JSON
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # Load the dataset for context retrieval
 ds = load_dataset("Amod/mental_health_counseling_conversations")
 context_data = ds['train']  # Get the training data (or any other split as needed)
 
-# Tokenizer for processing text input
-tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+# Load the Llama tokenizer and model (meta-llama/Llama-3.2-1B)
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
 
 # Preprocess the data (you can improve this depending on your use case)
 def preprocess_data(examples):
@@ -49,6 +22,7 @@ def preprocess_data(examples):
     return model_inputs
 
 # Index the contexts for retrieval using FAISS (for efficient nearest neighbor search)
+import faiss
 def index_contexts(context_data):
     # You can adjust embedding and dimension size based on your needs
     context_embeddings = [tokenizer.encode(context, return_tensors="pt", padding="max_length", truncation=True, max_length=512) for context in context_data['Context']]
@@ -72,33 +46,25 @@ def retrieve_context(query, index, context_embeddings, top_k=5):
     retrieved_contexts = [context_embeddings[i] for i in indices[0]]
     return retrieved_contexts
 
-# Query the Groq API for Llama model inference
-def query_groq_api(input_text, context):
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    
-    # Payload structure might need adjustment according to the actual API documentation
-    payload = {
-        "inputs": {
-            "context": context,
-            "query": input_text
-        }
-    }
-    
-    try:
-        # Update the endpoint to the correct one if necessary
-        response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        return response.json().get('response', "No response generated.")
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error: {e}")
-        return None
+# Local inference using Llama-3.2-1B
+def generate_response(input_text, context):
+    # Prepare the input for the model
+    input_with_context = f"Context: {context} \nQuery: {input_text}"
+
+    # Tokenize the input
+    inputs = tokenizer(input_with_context, return_tensors="pt", padding=True, truncation=True, max_length=512)
+
+    # Generate the output from the model
+    with torch.no_grad():
+        output = model.generate(**inputs, max_length=512, num_beams=5, no_repeat_ngram_size=2)
+
+    # Decode the output
+    response = tokenizer.decode(output[0], skip_special_tokens=True)
+    return response
 
 # Streamlit interface
-st.title("Mental Health Counseling Assistant with Groq and Llama")
-st.write("Type your question, and get a response from the Llama model.")
+st.title("Mental Health Counseling Assistant with Llama-3.2-1B")
+st.write("Type your question, and get a response from the Llama-3.2-1B model.")
 
 # User input for interaction
 user_input = st.text_area("How are you feeling today?", placeholder="Type here...")
@@ -113,9 +79,8 @@ if user_input.strip():
         retrieved_context = retrieve_context(user_input, index, context_embeddings)
         retrieved_context_text = " ".join([str(c) for c in retrieved_context])
 
-        # Step 2: Query the Groq API for Llama model's response
-        response = query_groq_api(user_input, retrieved_context_text)
-        if response:
-            st.write("Model Response:", response)
+        # Step 2: Generate the response using Llama-3.2-1B
+        response = generate_response(user_input, retrieved_context_text)
+        st.write("Model Response:", response)
 else:
     st.info("Please enter your thoughts or feelings in the text area above.")
