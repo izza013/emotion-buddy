@@ -1,14 +1,13 @@
 import streamlit as st
 import requests
-import os
 from datasets import load_dataset
 import numpy as np
 import faiss
 import torch
 from transformers import AutoTokenizer
 
-# Get the Groq API key from environment variables or Streamlit secrets
-api_key = os.environ.get("GROQ_API_KEY")  # or st.secrets["GROQ_API_KEY"] if using secrets
+# Get the Groq API key from Streamlit secrets
+api_key = st.secrets["GROQ_API_KEY"]  # Use Streamlit secrets for the API key
 url = "https://api.groq.com/openai/v1/models"
 
 # Define the headers for the API request
