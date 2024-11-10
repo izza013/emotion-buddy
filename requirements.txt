@@ -1,3 +1,7 @@
+streamlit
 transformers
 torch
-streamlit
+datasets
+faiss-cpu
+requests
+numpy
