@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 
 # Retrieve Hugging Face token from Streamlit secrets
-HUGGINGFACE_TOKEN = st.secrets["HF_ACCESS_TOKEN"]
+HUGGINGFACE_TOKEN = st.secrets["HUGGINGFACE_TOKEN"]
 
 # Function to load model and tokenizer
 def load_model(model_path):
