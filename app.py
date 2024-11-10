@@ -3,12 +3,17 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 
 # Retrieve Hugging Face token from Streamlit secrets
-HUGGINGFACE_TOKEN = st.secrets["HUGGINGFACE_TOKEN"]
+HUGGINGFACE_TOKEN = st.secrets.get("HUGGINGFACE_TOKEN")
+
+# Check if the token is available and valid
+if not HUGGINGFACE_TOKEN:
+    st.error("Hugging Face token not found. Please set the HUGGINGFACE_TOKEN in Streamlit Secrets.")
+    st.stop()
 
 # Function to load model and tokenizer
 def load_model(model_path):
     try:
-        # Load tokenizer and model with authentication token
+        # Load tokenizer and model using Hugging Face token for gated models
         tokenizer = AutoTokenizer.from_pretrained(model_path, use_auth_token=HUGGINGFACE_TOKEN)
         model = AutoModelForSeq2SeqLM.from_pretrained(model_path, use_auth_token=HUGGINGFACE_TOKEN)
         return tokenizer, model
@@ -19,8 +24,8 @@ def load_model(model_path):
 # Set device (use GPU if available)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Hugging Face model path
-model_path = "Izza-shahzad-13/fine-tuned-flan-t5"
+# Model path from Hugging Face
+model_path = "Izza-shahzad-13/fine-tuned-flan-t5"  # Replace with actual model path
 
 # Load tokenizer and model
 tokenizer, model = load_model(model_path)
