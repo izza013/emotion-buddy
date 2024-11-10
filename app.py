@@ -1,8 +1,9 @@
 import streamlit as st
 import requests
 from datasets import load_dataset
-import torch
+import numpy as np
 import faiss
+import torch
 from transformers import AutoTokenizer
 
 # Define Groq API endpoint and API key (replace 'YOUR_API_KEY' with your actual Groq API key)
@@ -28,33 +29,25 @@ def preprocess_data(examples):
 
 # Index the contexts for retrieval using FAISS (for efficient nearest neighbor search)
 def index_contexts(context_data):
-    # Create a list to hold the embeddings
-    context_embeddings = []
-    
-    # Iterate over each context, encode and ensure consistent tensor shape
-    for context in context_data['Context']:
-        # Encoding the context text into embeddings using the tokenizer
-        context_embedding = tokenizer.encode(context, return_tensors="pt", truncation=True, padding="max_length", max_length=512)
-        
-        # Append the embeddings to the list
-        context_embeddings.append(context_embedding)
-
-    # Concatenate all embeddings in the list into one tensor
-    context_embeddings = torch.cat(context_embeddings, dim=0)
-
-    # Convert tensor to numpy array for FAISS indexing
-    context_embeddings = context_embeddings.numpy()
+    # You can adjust embedding and dimension size based on your needs
+    context_embeddings = [tokenizer.encode(context, return_tensors="pt", padding="max_length", truncation=True, max_length=512) for context in context_data['Context']]
+    context_embeddings = torch.cat(context_embeddings, dim=0).numpy()  # Convert to NumPy array
     
     # Use FAISS for efficient indexing
-    index = faiss.IndexFlatL2(context_embeddings.shape[1])
-    index.add(context_embeddings)
-
+    index = faiss.IndexFlatL2(context_embeddings.shape[1])  # Create FAISS index with correct dimensionality
+    index.add(context_embeddings)  # Add embeddings to FAISS index
     return index, context_embeddings
 
 # Retrieve the most relevant context for a query using FAISS
 def retrieve_context(query, index, context_embeddings, top_k=5):
-    query_embedding = tokenizer.encode(query, return_tensors="pt").numpy()
+    # Ensure that the query is encoded with the same dimensions as the context embeddings
+    query_embedding = tokenizer.encode(query, return_tensors="pt", truncation=True, padding="max_length", max_length=512)
+    query_embedding = query_embedding.numpy()  # Convert query_embedding to NumPy array for FAISS compatibility
+    
+    # Perform the search using FAISS
     distances, indices = index.search(query_embedding, top_k)
+
+    # Retrieve the context data for the most similar results
     retrieved_contexts = [context_embeddings[i] for i in indices[0]]
     return retrieved_contexts
 
