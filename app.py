@@ -1,14 +1,36 @@
 import streamlit as st
 import requests
+import os
 from datasets import load_dataset
 import numpy as np
 import faiss
 import torch
 from transformers import AutoTokenizer
 
-# Define Groq API endpoint and API key (replace 'YOUR_API_KEY' with your actual Groq API key)
-GROQ_API_URL = "https://api.groq.com/llama/v1/chat/completions"  # Use correct Groq endpoint for your model
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]  # Access Groq API key from Streamlit secrets
+# Get the Groq API key from environment variables or Streamlit secrets
+api_key = os.environ.get("GROQ_API_KEY")  # or st.secrets["GROQ_API_KEY"] if using secrets
+url = "https://api.groq.com/openai/v1/models"
+
+# Define the headers for the API request
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+}
+
+# Make the API request to get available models from Groq
+response = requests.get(url, headers=headers)
+
+# Check if the response is successful (status code 200)
+if response.status_code == 200:
+    models_data = response.json()
+else:
+    st.error(f"Error retrieving models: {response.status_code}")
+    models_data = None
+
+# Display the list of models if data is successfully retrieved
+if models_data:
+    st.write("Available Models from Groq API:")
+    st.json(models_data)  # Display the raw model data as JSON
 
 # Load the dataset for context retrieval
 ds = load_dataset("Amod/mental_health_counseling_conversations")
@@ -54,19 +76,25 @@ def retrieve_context(query, index, context_embeddings, top_k=5):
 # Query the Groq API for Llama model inference
 def query_groq_api(input_text, context):
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
+    
+    # Payload structure might need adjustment according to the actual API documentation
     payload = {
-        "context": context,
-        "query": input_text,
-        "model": "llama"  # Specify the model you're using
+        "inputs": {
+            "context": context,
+            "query": input_text
+        }
     }
-    response = requests.post(GROQ_API_URL, json=payload, headers=headers)
-    if response.status_code == 200:
-        return response.json()['response']
-    else:
-        st.error(f"Error: {response.status_code} - {response.text}")
+    
+    try:
+        # Update the endpoint to the correct one if necessary
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return response.json().get('response', "No response generated.")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error: {e}")
         return None
 
 # Streamlit interface
